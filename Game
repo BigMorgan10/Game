@@ -1,0 +1,118 @@
+const quests = [
+  {
+    id: 1,
+    title: "La quête de la Pierre Sacrée",
+    steps: [
+      { text: "Trouve le vieux sage au village.", done: false },
+      { text: "Ramène la Pierre Sacrée.", done: false },
+      { text: "Retourne voir le sage.", done: false },
+    ],
+    currentStep: 0,
+    done: false,
+  }
+];
+
+const dialogues = {
+  sage: {
+    0: {
+      text: "Bienvenue, jeune aventurier. Veux-tu partir en quête ?",
+      choices: [
+        { text: "Oui", action: () => startQuest(1) },
+        { text: "Non", action: () => closeDialogue() },
+      ],
+    },
+    1: {
+      text: "As-tu ramené la Pierre Sacrée ?",
+      choices: [
+        { text: "Oui", action: () => completeStep(1, 1) },
+        { text: "Pas encore", action: () => closeDialogue() },
+      ],
+    },
+    2: {
+      text: "Merci d'avoir accompli la quête.",
+      choices: [{ text: "Au revoir", action: () => closeDialogue() }],
+    },
+  },
+};
+
+function startQuest(id) {
+  const quest = quests.find(q => q.id === id);
+  if (quest) {
+    quest.currentStep = 0;
+    showDialogue('sage', 0);
+  }
+}
+
+function completeStep(questId, stepIndex) {
+  const quest = quests.find(q => q.id === questId);
+  if (quest) {
+    quest.steps[stepIndex].done = true;
+    quest.currentStep++;
+    if (quest.currentStep >= quest.steps.length) {
+      quest.done = true;
+      uiText.textContent = `Quête terminée: ${quest.title}`;
+      showDialogue('sage', 2);
+    } else {
+      uiText.textContent = `Prochaine étape: ${quest.steps[quest.currentStep].text}`;
+      showDialogue('sage', 1);
+    }
+  }
+}
+
+function showDialogue(npc, step) {
+  const dlg = dialogues[npc][step];
+  uiText.innerHTML = `<p>${dlg.text}</p>`;
+  dlg.choices.forEach((choice, i) => {
+    const btn = document.createElement('button');
+    btn.textContent = choice.text;
+    btn.onclick = choice.action;
+    uiText.appendChild(btn);
+  });
+}
+
+function closeDialogue() {
+  uiText.textContent = '';
+}
+const sprite = new Image();
+sprite.src = 'ton-sprite.png';
+
+let frameIndex = 0;
+const frameCount = 4;
+const frameWidth = 64;
+const frameHeight = 64;
+
+function drawPlayer() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(
+    sprite,
+    frameIndex * frameWidth,
+    0,
+    frameWidth,
+    frameHeight,
+    player.x - frameWidth/2,
+    player.y - frameHeight/2,
+    frameWidth,
+    frameHeight
+  );
+  frameIndex = (frameIndex + 1) % frameCount;
+}
+const io = require('socket.io')(3000, {
+  cors: { origin: "*" }
+});
+
+const players = {};
+
+io.on('connection', socket => {
+  players[socket.id] = { x: 100, y: 100 };
+
+  socket.on('move', data => {
+    players[socket.id].x += data.dx;
+    players[socket.id].y += data.dy;
+    io.emit('update', players);
+  });
+
+  socket.on('disconnect', () => {
+    delete players[socket.id];
+    io.emit('update', players);
+  });
+});
